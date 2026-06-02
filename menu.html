@@ -202,10 +202,11 @@ const API_URL = "https://canteen-backend-jjya.onrender.com/api";
 let menu = [];
 let editId = null;
 
-let categories = JSON.parse(localStorage.getItem("categories")) || ["Breakfast","Lunch","Dinner","Special"];
+// 1. Base defaults (NO localStorage!)
+let defaultCategories = ["Breakfast", "Lunch", "Dinner", "Special"];
+let categories = [...defaultCategories];
 
-function saveCategories(){ localStorage.setItem("categories", JSON.stringify(categories)); }
-
+// 2. Load Categories to the screen
 function loadCategories(){
     let select = document.getElementById("category");
     let btnDiv = document.getElementById("categoryButtons");
@@ -228,34 +229,45 @@ function loadCategories(){
     });
 }
 
+// 3. Add Category (Temporary until item is saved)
 function addCategory(){
-    let newCat=document.getElementById("newCategory").value.trim();
+    let newCat = document.getElementById("newCategory").value.trim();
     if(!newCat || categories.includes(newCat)) return;
-    categories.push(newCat); saveCategories(); loadCategories();
+    
+    categories.push(newCat); 
+    loadCategories();
+    document.getElementById("newCategory").value = ""; 
 }
 
-// --- New Delete Category Logic ---
+// 4. Delete Category (Hides it temporarily)
 function deleteCategory() {
     let select = document.getElementById("category");
     let catToDelete = select.value;
     
     if (!catToDelete) return;
-    if (!confirm(`Are you sure you want to delete the "${catToDelete}" category?`)) return;
+    if (!confirm(`Hide the "${catToDelete}" category?\n\nNote: To delete it permanently for everyone, you must delete or edit all live food items that are currently using it.`)) return;
     
-    // Remove the category from the array
     categories = categories.filter(c => c !== catToDelete);
-    
-    // Save to localStorage and refresh the dropdown
-    saveCategories(); 
     loadCategories();
 }
-// ---------------------------------
 
+// 5. Fetch Menu (Extracts global categories from the live database!)
 async function fetchMenu() {
     try {
         const res = await fetch(`${API_URL}/item-list`);
         const result = await res.json();
-        if (result.status === 1) { menu = result.data; displayMenu(menu); }
+        if (result.status === 1) { 
+            menu = result.data; 
+            
+            // Extract unique categories from the live items in the database
+            const liveCategories = [...new Set(menu.filter(i => i.category).map(i => i.category))];
+            
+            // Combine our defaults with the live database categories
+            categories = [...new Set([...defaultCategories, ...liveCategories])];
+            
+            displayMenu(menu); 
+            loadCategories(); 
+        }
     } catch (err) { console.error("Fetch error:", err); }
 }
 
@@ -263,7 +275,6 @@ function displayMenu(items){
     let div=document.getElementById("menuContainer");
     div.innerHTML="";
     items.forEach(item=>{
-        
         let stockQty = item.quantity || 0;
         let stockText = stockQty === 0 ? "Out of Stock" : `Stock: ${stockQty}`;
         let stockColor = stockQty === 0 ? "var(--danger)" : (stockQty <= 5 ? "orange" : "var(--success)");
