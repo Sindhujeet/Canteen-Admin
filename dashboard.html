@@ -12,6 +12,11 @@
 
 <div id="navbar-container"></div>
 <script>
+    // 🔒 Security Check: Kick them out if they aren't logged in
+    if (sessionStorage.getItem("isAdminLoggedIn") !== "true") {
+        window.location.href = "index.html";
+    }
+
     fetch("navbar.html")
         .then(response => response.text())
         .then(data => {
@@ -34,10 +39,17 @@
         <p id="dashItems" style="color: #f59e0b; font-size: 28px;">Loading...</p>
       </div>
     </div>
+
+    <div id="managerSection" style="display: none; max-width: 1000px; margin: 30px auto; padding: 0 20px; width: 100%;">
+        <h2 style="color: white; font-family: 'Segoe UI', sans-serif; margin-bottom: 15px; font-size: 20px;">Pending Staff Approvals</h2>
+        <div id="pendingUsersList" style="display: flex; flex-direction: column; gap: 12px; font-family: 'Segoe UI', sans-serif;">
+            </div>
+    </div>
 </div>
 
 <script>
 function logout(){
+  sessionStorage.clear(); // Ensure session is fully cleared
   window.location.href = "index.html";
 }
 
@@ -69,8 +81,64 @@ async function loadLiveStats() {
     }
 }
 
-// Run the function when the page loads
+// ── ADMIN APPROVAL WORKFLOW LOGIC ─────────────────────────────
+async function loadPendingUsers() {
+    // Only show this section if the logged in user is a Manager
+    if (sessionStorage.getItem("userRole") !== "manager") return;
+    
+    document.getElementById("managerSection").style.display = "block";
+    const listDiv = document.getElementById("pendingUsersList");
+
+    try {
+        const res = await fetch("https://canteen-backend-jjya.onrender.com/api/admins/pending");
+        const pendingUsers = await res.json();
+        
+        listDiv.innerHTML = ""; // Clear existing
+
+        if (!pendingUsers || pendingUsers.length === 0) {
+            listDiv.innerHTML = "<p style='color: #94a3b8;'>No pending approvals at this time.</p>";
+            return;
+        }
+
+        // Generate a clean row for every pending user
+        pendingUsers.forEach(user => {
+            listDiv.innerHTML += `
+                <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.2);">
+                    <div>
+                        <strong style="color: white; font-size: 16px;">${user.username}</strong>
+                        <span style="color: #cbd5e1; font-size: 14px; margin-left: 10px; background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 5px;">Role: ${user.role}</span>
+                    </div>
+                    <button onclick="approveUser('${user._id}')" style="background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">
+                        Approve Access
+                    </button>
+                </div>
+            `;
+        });
+    } catch (error) {
+        console.error("Error loading pending users:", error);
+        listDiv.innerHTML = "<p style='color: #ef4444;'>Failed to load pending requests from the database.</p>";
+    }
+}
+
+async function approveUser(userId) {
+    try {
+        const res = await fetch(`https://canteen-backend-jjya.onrender.com/api/admins/approve/${userId}`, { 
+            method: 'PUT' 
+        });
+        
+        // If the backend request succeeds, refresh the list to make the user disappear
+        if (res.ok) {
+            alert("Staff member approved successfully! They can now log in.");
+            loadPendingUsers(); 
+        }
+    } catch (error) {
+        alert("Failed to connect to the server to approve user.");
+    }
+}
+
+// Run functions when the page loads
 loadLiveStats();
+loadPendingUsers();
 </script>
 
 </body>
