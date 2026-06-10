@@ -100,7 +100,7 @@ async function loadPendingUsers() {
             return;
         }
 
-        // Generate a clean row for every pending user
+       // Generate a clean row for every pending user
         pendingUsers.forEach(user => {
             listDiv.innerHTML += `
                 <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.2);">
@@ -108,9 +108,16 @@ async function loadPendingUsers() {
                         <strong style="color: white; font-size: 16px;">${user.username}</strong>
                         <span style="color: #cbd5e1; font-size: 14px; margin-left: 10px; background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 5px;">Role: ${user.role}</span>
                     </div>
-                    <button onclick="approveUser('${user._id}')" style="background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">
-                        Approve Access
-                    </button>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="approveUser('${user._id}')" style="background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">
+                            Approve
+                        </button>
+                        
+                        <button onclick="rejectUser('${user._id}')" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">
+                            Reject
+                        </button>
+                    </div>
                 </div>
             `;
         });
@@ -133,6 +140,30 @@ async function approveUser(userId) {
         }
     } catch (error) {
         alert("Failed to connect to the server to approve user.");
+    }
+}
+
+// NEW: Reject User Logic added safely below approveUser
+async function rejectUser(userId) {
+    // Show a warning box so the manager doesn't click it by mistake
+    if (!confirm("Are you sure you want to permanently delete this registration request?")) {
+        return; 
+    }
+
+    try {
+        const res = await fetch(`https://canteen-backend-jjya.onrender.com/api/admins/reject/${userId}`, { 
+            method: 'DELETE' 
+        });
+        
+        if (res.ok) {
+            alert("Request rejected and deleted from database.");
+            loadPendingUsers(); // Instantly reload the list to make the user disappear
+        } else {
+            alert("Failed to delete user. Please try again.");
+        }
+    } catch (error) {
+        console.error("Error rejecting user:", error);
+        alert("Failed to connect to the server.");
     }
 }
 
